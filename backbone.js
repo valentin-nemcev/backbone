@@ -199,7 +199,7 @@
       var now = this.attributes, escaped = this._escapedAttributes;
 
       // Run validation.
-      if (!options.silent && this.validate && !this._performValidation(attrs, options)) return false;
+      if (!this.performValidation(attrs, options)) return false;
 
       // Check for changes of `id`.
       if (this.idAttribute in attrs) this.id = attrs[this.idAttribute];
@@ -235,7 +235,7 @@
       // Run validation.
       var validObj = {};
       validObj[attr] = void 0;
-      if (!options.silent && this.validate && !this._performValidation(validObj, options)) return false;
+      if (!this.performValidation(validObj, options)) return false;
 
       // Remove the attribute.
       delete this.attributes[attr];
@@ -258,7 +258,7 @@
       // Run validation.
       var validObj = {};
       for (var attr in old) validObj[attr] = void 0;
-      if (!options.silent && this.validate && !this._performValidation(validObj, options)) return false;
+      if (!this.performValidation(validObj, options)) return false;
 
       this.attributes = {};
       this._escapedAttributes = {};
@@ -391,9 +391,11 @@
     },
 
     // Run validation against a set of incoming attributes, returning `true`
-    // if all is well. If a specific `error` callback has been passed,
-    // call that instead of firing the general `"error"` event.
-    _performValidation : function(attrs, options) {
+    // if all is well or model has no `"validate"` method. If a specific `error`
+    // callback has been passed, call that instead of firing the general `"error"`
+    // event unless `"silent"` option is passed.
+    performValidation : function(attrs, options) {
+      if (options.silent || !this.validate) return true;
       var error = this.validate(attrs);
       if (error) {
         if (options.error) {
@@ -567,8 +569,8 @@
     _prepareModel: function(model, options) {
       if (!(model instanceof Backbone.Model)) {
         var attrs = model;
-        model = new this.model(null, {collection: this});
-        if (!model.set(attrs, options)) model = false;
+        model = new this.model(attrs, {collection: this});
+        if (!model.performValidation(attrs, options)) model = false;
       } else if (!model.collection) {
         model.collection = this;
       }

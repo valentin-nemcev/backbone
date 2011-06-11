@@ -323,6 +323,18 @@ $(document).ready(function() {
     ok(_.isEqual(col.last().attributes, a.attributes));
   });
 
+  test("Collection: model in collection have correct previousAttributes() after reset", function(){
+    var col = new Backbone.Collection();
+    col.bind('change', function(model) {
+      equals(model.previous('name'), 'one')
+    });
+
+    col.reset([
+      {id : 0, name : 'one'},
+    ]);
+    col.first().set({name: 'two'});
+  })
+
   test("Collection: trigger custom events on models", function() {
     var fired = null;
     a.bind("custom", function() { fired = true; });
