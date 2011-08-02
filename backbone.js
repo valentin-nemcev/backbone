@@ -1,4 +1,4 @@
-//     Backbone.js 0.5.2
+//     Backbone.js 0.5.1
 //     (c) 2010 Jeremy Ashkenas, DocumentCloud Inc.
 //     Backbone may be freely distributed under the MIT license.
 //     For all details and documentation:
@@ -25,7 +25,7 @@
   }
 
   // Current version of the library. Keep in sync with `package.json`.
-  Backbone.VERSION = '0.5.2';
+  Backbone.VERSION = '0.5.1';
 
   // Require Underscore, if we're on the server, and it's not already present.
   var _ = root._;
@@ -68,10 +68,10 @@
 
     // Bind an event, specified by a string name, `ev`, to a `callback` function.
     // Passing `"all"` will bind the callback to all events fired.
-    bind : function(ev, callback, context) {
+    bind : function(ev, callback) {
       var calls = this._callbacks || (this._callbacks = {});
       var list  = calls[ev] || (calls[ev] = []);
-      list.push([callback, context]);
+      list.push(callback);
       return this;
     },
 
@@ -89,7 +89,7 @@
           var list = calls[ev];
           if (!list) return this;
           for (var i = 0, l = list.length; i < l; i++) {
-            if (list[i] && callback === list[i][0]) {
+            if (callback === list[i]) {
               list[i] = null;
               break;
             }
@@ -114,7 +114,7 @@
               list.splice(i, 1); i--; l--;
             } else {
               args = both ? Array.prototype.slice.call(arguments, 1) : arguments;
-              callback[0].apply(callback[1] || this, args);
+              callback.apply(this, args);
             }
           }
         }
@@ -133,7 +133,7 @@
     var defaults;
     attributes || (attributes = {});
     if (defaults = this.defaults) {
-      if (_.isFunction(defaults)) defaults = defaults.call(this);
+      if (_.isFunction(defaults)) defaults = defaults();
       attributes = _.extend({}, defaults, attributes);
     }
     this.attributes = {};
@@ -524,6 +524,8 @@
       //keep track of the models we've updated, cause we're gunna delete the rest if 'removeMissing' is set.
       var updateMap = _.reduce(this.models, function(map, model){ map[model.id] = false; return map },{});
 
+      var silent = options.silent;
+
       _.each( models, function(model) {
 
         var idAttribute = this.model.prototype.idAttribute;
@@ -534,17 +536,17 @@
         if ( this._byId[modelId] ) {
           var attrs = (model instanceof Backbone.Model) ? _.clone(model.attributes) : _.clone(model);
           delete attrs[idAttribute];
-          this._byId[modelId].set( attrs );
+          this._byId[modelId].set( attrs, {silent: silent} );
           updateMap[modelId] = true;
         }
         else {
-          this.add( model );
+          this.add( model, {silent: silent} );
         }
       }, this);
 
       if ( options.removeMissing ) {
         _.select(updateMap, function(updated, modelId){
-          if (!updated) this.remove( modelId );
+          if (!updated) this.remove( modelId, {silent: silent} );
         }, this);
       }
 
@@ -847,8 +849,6 @@
       if (this._wantsPushState && !this._hasPushState && !atRoot) {
         this.fragment = this.getFragment(null, true);
         window.location.replace(this.options.root + '#' + this.fragment);
-        // Return immediately as browser will do redirect to new url
-        return true;
       } else if (this._wantsPushState && this._hasPushState && atRoot && loc.hash) {
         this.fragment = loc.hash.replace(hashStrip, '');
         window.history.replaceState({}, document.title, loc.protocol + '//' + loc.host + this.options.root + this.fragment);
@@ -1078,7 +1078,8 @@
     // Default JSON-request options.
     var params = _.extend({
       type:         type,
-      dataType:     'json'
+      dataType:     'json',
+      processData:  false
     }, options);
 
     // Ensure that we have a URL.
@@ -1095,6 +1096,7 @@
     // For older servers, emulate JSON by encoding the request into an HTML-form.
     if (Backbone.emulateJSON) {
       params.contentType = 'application/x-www-form-urlencoded';
+      params.processData = true;
       params.data        = params.data ? {model : params.data} : {};
     }
 
@@ -1108,11 +1110,6 @@
           xhr.setRequestHeader('X-HTTP-Method-Override', type);
         };
       }
-    }
-
-    // Don't process data on a non-GET request.
-    if (params.type !== 'GET') {
-      params.processData = false;
     }
 
     // Make the request.
